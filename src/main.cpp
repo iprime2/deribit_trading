@@ -12,6 +12,8 @@
 #include <sstream>
 #include <mutex>
 // #include "WebSocketServer.hpp"
+#include "DeribitWSClient.hpp"
+
 
 using json = nlohmann::json;
 
@@ -32,7 +34,8 @@ std::mutex token_mutex;
         log_to_file(log_entry);                                                                      \
     } while(0)
 
-int main() {
+
+int http_apis() {
     std::string client_id = "GSdaPwOW";
     std::string client_secret = "VxqDlLsYY6brBfh6Kpu5NiyUQI0pDMU-YKZz0gFhxZo";
 
@@ -54,6 +57,7 @@ int main() {
     // std::thread wsThread([&wsServer]() {
     //     wsServer.start();
     // });
+    
 
     auto privateClient = std::make_shared<DeribitPrivateWSClient>(client_id, client_secret);
     privateClient->connect();
@@ -206,7 +210,7 @@ int main() {
         LOG_API("MODIFY", app_route, "/api/v2/private/edit", 200, json::parse(resp)["meta"]["latency_ms"], resp, "WS");
         return crow::response(200, resp);
     });
-       
+        
     // GET Position
     CROW_ROUTE(app, "/api/ws/positions").methods("GET"_method)
     ([privateClient](const crow::request& req) {
@@ -461,3 +465,50 @@ int main() {
 
     return 0;
 }
+
+int main () {
+    int choice;
+
+    while (true) {
+        std::cout << "\nMenu:\n";
+        std::cout << "1. Subscribe\n";
+        std::cout << "2. APIS\n";
+        std::cout << "0. Exit\n";
+        std::cout << "Enter your choice: ";
+        std::cin >> choice;
+
+        switch (choice) {
+            case 1:
+                try {
+                    std::string symbol;
+                    std::cout << "Enter Deribit symbol (e.g., BTC-PERPETUAL): ";
+                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // fix here
+                    std::getline(std::cin, symbol);
+            
+                    if (symbol.empty()) {
+                        std::cerr << "[ERROR] Symbol cannot be empty." << std::endl;
+                        return 1;
+                    }
+            
+                    DeribitWSClient client(symbol);
+                    client.run();
+                } catch (const std::exception& e) {
+                    std::cerr << "[ERROR] Exception in main: " << e.what() << std::endl;
+                }
+                break;
+            case 2:
+                http_apis();
+                break;
+            case 0:
+                std::cout << "Exiting..." << std::endl;
+                return 0;
+            default:
+                std::cout << "Invalid choice. Try again." << std::endl;
+        }
+    }
+
+
+    return 0;
+}
+
+

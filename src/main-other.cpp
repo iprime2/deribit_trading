@@ -11,7 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <mutex>
-#include "WebSocketServer.hpp"
+// #include "WebSocketServer.hpp"
 
 using json = nlohmann::json;
 
@@ -54,6 +54,7 @@ int main() {
     std::thread wsThread([&wsServer]() {
         wsServer.start();
     });
+    
 
     auto privateClient = std::make_shared<DeribitPrivateWSClient>(client_id, client_secret);
     privateClient->connect();

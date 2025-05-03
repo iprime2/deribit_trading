@@ -29,8 +29,7 @@ add_executable(DeribitTrader
     src/trading.cpp
     src/utils.cpp
     src/DeribitPrivateWSClient.cpp
-#   src/WebSocketServer.cpp
-#   src/DeribitWSClient.cpp
+    src/DeribitWSClient.cpp
 )
 
 target_link_libraries(DeribitTrader

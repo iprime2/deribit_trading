@@ -56,22 +56,30 @@ void DeribitWSClient::on_message(websocketpp::connection_hdl, ws_client::message
     const std::string& payload = msg->get_payload();
     try {
         json parsed = json::parse(payload);
+        std::cout<<parsed<<std::endl;
 
         if (parsed.contains("params") && parsed["params"].contains("data")) {
             auto& data = parsed["params"]["data"];
+            long long latency_us = -1;
+
             if (data.contains("timestamp")) {
+                // Deribit timestamp is in milliseconds
                 long long sent_ms = data["timestamp"].get<long long>();
                 long long sent_us = sent_ms * 1000;
 
+                // Get current time in microseconds
                 auto received_time = std::chrono::system_clock::now();
                 long long now_us = std::chrono::duration_cast<std::chrono::microseconds>(
                     received_time.time_since_epoch()).count();
 
-                long long latency_us = now_us - sent_us;
-                log_ws_event("RECEIVED", symbol, payload, latency_us);
-            } else {
-                log_ws_event("RECEIVED", symbol, payload, -1);
+                latency_us = now_us - sent_us;
+                log_to_file("[time] Now: " + std::to_string(now_us) +
+                    " | Sent: " + std::to_string(sent_us) +
+                    " | Latency (us): " + std::to_string(latency_us));
+
             }
+
+            log_ws_event("RECEIVED", symbol, "payload", latency_us);
         }
 
     } catch (const std::exception& e) {
@@ -81,6 +89,7 @@ void DeribitWSClient::on_message(websocketpp::connection_hdl, ws_client::message
 
 void DeribitWSClient::run() {
     websocketpp::lib::error_code ec;
+    std::cout << "[DEBUG] Starting WebSocketServer..." << std::endl;
     auto conn = client.get_connection("wss://test.deribit.com/ws/api/v2/", ec);
     if (ec) {
         log_to_file("[ERROR] WebSocket connection failed: " + ec.message());
