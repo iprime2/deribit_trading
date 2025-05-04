@@ -1,4 +1,4 @@
-# Deribit Trading Bot
+# Deribit Trading Application
 
 A C++ based trading application for the Deribit cryptocurrency derivatives exchange.
 
