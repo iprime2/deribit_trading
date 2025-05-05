@@ -12,5 +12,6 @@ public:
 private:
     CURL* curl;
     struct curl_slist* headers = nullptr;
+    std::string response;
     static size_t writeCallback(void* contents, size_t size, size_t nmemb, std::string* output);
 };

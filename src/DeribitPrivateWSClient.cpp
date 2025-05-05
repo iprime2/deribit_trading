@@ -1,7 +1,13 @@
 #include "DeribitPrivateWSClient.hpp"
 #include "utils.h"
 
+#include <unordered_map>
+
 constexpr const char* DERIBIT_WS_URL = "wss://test.deribit.com/ws/api/v2";
+
+
+std::unordered_map<int, std::chrono::high_resolution_clock::time_point> sent_times;
+std::mutex sent_times_mutex;
 
 DeribitPrivateWSClient::DeribitPrivateWSClient(const std::string& id, const std::string& secret)
     : client_id(id), client_secret(secret) {
@@ -59,6 +65,25 @@ void DeribitPrivateWSClient::on_message(websocketpp::connection_hdl, ws_client::
     try {
         json response = json::parse(payload);
 
+        int id = response.value("id", -1);
+
+        if (id != -1) {
+            auto end = std::chrono::high_resolution_clock::now();
+        
+            std::lock_guard<std::mutex> lock(sent_times_mutex);
+            auto it = sent_times.find(id);
+            if (it != sent_times.end()) {
+                auto start = it->second;
+                auto latency_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+                auto latency_ms = latency_us / 1000.0;
+        
+                response["meta"]["latency_app_us"] = latency_us;
+                response["meta"]["latency_app_ms"] = latency_ms;
+        
+                sent_times.erase(it);  // Clean up
+            }
+        }        
+
         if (response.contains("id") && response["id"] == 1 && response.contains("result")) {
             access_token = response["result"]["access_token"];
             authenticated = true;
@@ -66,16 +91,14 @@ void DeribitPrivateWSClient::on_message(websocketpp::connection_hdl, ws_client::
             return;
         }
 
-        long latency_us = -1;
-        if (response.contains("usIn") && response.contains("usOut")) {
-            latency_us = response["usOut"].get<long long>() - response["usIn"].get<long long>();
-            response["meta"] = {
-                {"latency_us", latency_us},
-                {"latency_ms", latency_us / 1000.0}
-            };
-        }
+        // long latency_us = -1;
+        // if (response.contains("usIn") && response.contains("usOut")) {
+        //     latency_us = response["usOut"].get<long long>() - response["usIn"].get<long long>();
+        //     response["meta"]["latency_us"] = latency_us;
+        //     response["meta"]["latency_ms"] = latency_us / 1000.0;
+        // }
 
-        log_ws_event("RECEIVED", "", payload, latency_us);
+        log_ws_event("RECEIVED", "", payload, response["meta"]["latency_app_us"] );
         setWebSocketResponse(response);
 
     } catch (const std::exception& e) {
@@ -190,6 +213,11 @@ bool DeribitPrivateWSClient::getOrderBook(const std::string& instrument_name, in
 
 bool DeribitPrivateWSClient::sendJSON(const json& payload) {
     try {
+        if (payload.contains("id")) {
+            int id = payload["id"].get<int>();
+            std::lock_guard<std::mutex> lock(sent_times_mutex);
+            sent_times[id] = std::chrono::high_resolution_clock::now();
+        }
         auto locked_hdl = hdl.lock();
         if (connected && locked_hdl) {
             client.send(locked_hdl, payload.dump(), websocketpp::frame::opcode::text);

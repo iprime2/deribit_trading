@@ -42,18 +42,18 @@ json handle_response(const std::string& response_text, long http_code, const std
 
 json curl_get_request(const std::string& url, const std::string& auth_header = "") {
     return pool.enqueue([url, auth_header]() {
+        static thread_local CurlHandler handler;
+
         long http_code = 0;
-        CurlHandler handler;
         auto start = std::chrono::high_resolution_clock::now();
         std::string res = handler.performGet(url, auth_header, &http_code);
-        std::cout<<"curl_get_request"<<std::endl;
-        std::cout<<res<<std::endl;
         auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::high_resolution_clock::now() - start
         );
-        return handle_response(res, 200, latency);
+        return handle_response(res, http_code, latency);
     }).get();
 }
+
 
 std::string construct_url(const std::string& base, const std::vector<std::pair<std::string, std::string>>& params) {
     std::ostringstream oss;
