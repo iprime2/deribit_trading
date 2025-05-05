@@ -318,7 +318,6 @@ int http_apis() {
     ([](const crow::request& req) {
         std::string app_route = req.url;  
         std::string token = extract_bearer_token(req);
-        // std::string token = get_access_token(client_id, client_secret);
 
         if (token.empty()) {
             LOG_API("BUY", app_route, "/api/v2/private/buy", 401, 0, R"({"error": "Missing or invalid token"})", "HTTPS");
@@ -327,10 +326,14 @@ int http_apis() {
 
         try {
             auto body = nlohmann::json::parse(req.body);
+            
             std::string instrument = body["instrument"];
             double amount = body["amount"];
             std::string type = body["type"];
 
+            std::cout<<body<<std::endl;
+            std::cout<<type<<std::endl;
+            
             nlohmann::json res;
             if (type == "market") {
                 res = place_market_buy(token, instrument, amount);
@@ -383,7 +386,9 @@ int http_apis() {
         std::string instrument = query.get("instrument");
         int depth = query.get("depth") ? std::stoi(query.get("depth")) : 2;
 
+        std::cout<<"before req"<<std::endl;
         auto res = get_orderbook(instrument, depth);
+        
         LOG_API("ORDERBOOK", app_route, "/api/v2/public/get_order_book", res["http_status"], res["latency_ms"], res.dump(4), "HTTPS");
         return crow::response{ res.dump(4) };
     });
@@ -392,7 +397,6 @@ int http_apis() {
     ([](const crow::request& req) {
         std::string app_route = req.url;  
         std::string token = extract_bearer_token(req);
-        // std::string token = get_access_token(client_id, client_secret);
 
         if (token.empty()) {
             LOG_API("ORDERS", app_route, "/api/v2/private/get_open_orders_by_instrument", 401, 0, R"({"error": "Missing or invalid token"})", "HTTPS");

@@ -30,6 +30,8 @@ add_executable(DeribitTrader
     src/utils.cpp
     src/DeribitPrivateWSClient.cpp
     src/DeribitWSClient.cpp
+    include/ThreadPool.tpp
+    src/CurlHandler.cpp
 )
 
 target_link_libraries(DeribitTrader

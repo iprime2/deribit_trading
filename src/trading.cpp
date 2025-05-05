@@ -5,13 +5,12 @@
 #include <sstream>
 #include <curl/curl.h>
 
-using json = nlohmann::json;
+#include "CurlHandler.h"
+#include "ThreadPool.h"
 
-size_t write_callback(void* contents, size_t size, size_t nmemb, std::string* output) {
-    size_t totalSize = size * nmemb;
-    output->append((char*)contents, totalSize);
-    return totalSize;
-}
+static ThreadPool pool(4); 
+
+using json = nlohmann::json;
 
 json handle_response(const std::string& response_text, long http_code, const std::chrono::milliseconds& latency) {
     try {
@@ -42,40 +41,18 @@ json handle_response(const std::string& response_text, long http_code, const std
 }
 
 json curl_get_request(const std::string& url, const std::string& auth_header = "") {
-    CURL* curl = curl_easy_init();
-    std::string response_string;
-    long http_code = 0;
-    using Clock = std::chrono::high_resolution_clock;
-    auto start = Clock::now();
-
-    if (curl) {
-        struct curl_slist* headers = nullptr;
-        if (!auth_header.empty()) {
-            headers = curl_slist_append(headers, auth_header.c_str());
-        }
-
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        if (headers) curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_string);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-
-        CURLcode res = curl_easy_perform(curl);
-        if (res != CURLE_OK) {
-            curl_easy_cleanup(curl);
-            return {
-                {"error", "CURL request failed"},
-                {"message", curl_easy_strerror(res)}
-            };
-        }
-
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-        curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
-    }
-
-    auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start);
-    return handle_response(response_string, http_code, latency);
+    return pool.enqueue([url, auth_header]() {
+        long http_code = 0;
+        CurlHandler handler;
+        auto start = std::chrono::high_resolution_clock::now();
+        std::string res = handler.performGet(url, auth_header, &http_code);
+        std::cout<<"curl_get_request"<<std::endl;
+        std::cout<<res<<std::endl;
+        auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() - start
+        );
+        return handle_response(res, 200, latency);
+    }).get();
 }
 
 std::string construct_url(const std::string& base, const std::vector<std::pair<std::string, std::string>>& params) {
