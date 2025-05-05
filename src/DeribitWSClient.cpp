@@ -49,6 +49,16 @@ void DeribitWSClient::on_open(websocketpp::connection_hdl h) {
         {"id", 1}
     };
 
+    // Store send time for the channel
+    long long now_us = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::high_resolution_clock::now().time_since_epoch()
+    ).count();
+
+    {
+        std::lock_guard<std::mutex> lock(latency_mutex);
+        channel_send_time_us[channel] = now_us;
+    }
+
     client.send(hdl, subscribe_msg.dump(), websocketpp::frame::opcode::text);
 }
 
@@ -58,30 +68,29 @@ void DeribitWSClient::on_message(websocketpp::connection_hdl, ws_client::message
         json parsed = json::parse(payload);
         std::cout<<parsed<<std::endl;
 
-        if (parsed.contains("params") && parsed["params"].contains("data")) {
-            auto& data = parsed["params"]["data"];
+        if (parsed.contains("params") && parsed["params"].contains("data") &&
+            parsed["params"].contains("channel")) {
+
+            std::string channel = parsed["params"]["channel"];
+            long long recv_time_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::high_resolution_clock::now().time_since_epoch()
+            ).count();
+
             long long latency_us = -1;
-
-            if (data.contains("timestamp")) {
-                // Deribit timestamp is in milliseconds
-                long long sent_ms = data["timestamp"].get<long long>();
-                long long sent_us = sent_ms * 1000;
-
-                // Get current time in microseconds
-                auto received_time = std::chrono::system_clock::now();
-                long long now_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                    received_time.time_since_epoch()).count();
-
-                latency_us = now_us - sent_us;
-                log_to_file("[time] Now: " + std::to_string(now_us) +
-                    " | Sent: " + std::to_string(sent_us) +
-                    " | Latency (us): " + std::to_string(latency_us));
-
+            {
+                std::lock_guard<std::mutex> lock(latency_mutex);
+                if (channel_send_time_us.count(channel)) {
+                    latency_us = recv_time_us - channel_send_time_us[channel];
+                    channel_send_time_us[channel] = recv_time_us; // update for next cycle
+                }
             }
 
-            log_ws_event("RECEIVED", symbol, "payload", latency_us);
-        }
+            log_to_file("[LATENCY] Channel: " + channel +
+                        " | Latency(us): " + std::to_string(latency_us));
 
+            log_ws_event("RECEIVED", symbol, channel, latency_us);
+        }
+        
     } catch (const std::exception& e) {
         log_to_file(std::string("[ERROR] JSON parse error: ") + e.what());
     }

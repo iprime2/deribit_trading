@@ -3,6 +3,8 @@
 #include <websocketpp/config/asio_client.hpp>
 #include <websocketpp/client.hpp>
 #include <string>
+#include <unordered_map>
+#include <mutex>
 
 class DeribitWSClient {
 public:
@@ -17,4 +19,7 @@ private:
     websocketpp::connection_hdl hdl;
     std::string symbol;
     bool connected = false;
+    long long start_time_us = -1;
+    std::unordered_map<std::string, long long> channel_send_time_us;
+    std::mutex latency_mutex;
 };
