@@ -36,21 +36,23 @@ std::mutex token_mutex;
 
 
 int http_apis() {
-    std::string client_id = "GSdaPwOW";
-    std::string client_secret = "VxqDlLsYY6brBfh6Kpu5NiyUQI0pDMU-YKZz0gFhxZo";
+    // std::string client_id = "GSdaPwOW";
+    // std::string client_secret = "VxqDlLsYY6brBfh6Kpu5NiyUQI0pDMU-YKZz0gFhxZo";
 
-    // std::string client_id, client_secret;
+    std::string client_id, client_secret;
 
-    // std::cout << "Enter your Deribit Client ID: ";
+    std::cout << "Enter your Deribit Client ID: ";
+    std::cin >> client_id;
     // std::getline(std::cin, client_id);
 
-    // std::cout << "Enter your Deribit Client Secret: ";
+    std::cout << "Enter your Deribit Client Secret: ";
+    std::cin >> client_secret;
     // std::getline(std::cin, client_secret);
 
-    // if (client_id.empty() || client_secret.empty()) {
-    //     std::cerr << "[ERROR] Client ID and Secret cannot be empty!" << std::endl;
-    //     return 1;
-    // }
+    if (client_id.empty() || client_secret.empty()) {
+        std::cerr << "[ERROR] Client ID and Secret cannot be empty!" << std::endl;
+        return 1;
+    }
 
     // Start WebSocket server on port 9001
     // WebSocketServer wsServer(9101);
